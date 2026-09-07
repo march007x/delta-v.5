@@ -18,14 +18,11 @@ const STORAGE_KEY = "delta-language";
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const [language, setLanguageState] = useState<Language>("th");
-
-  useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem("delta-locale");
-    if (saved === "th" || saved === "en") {
-      setLanguageState(saved);
-    }
-  }, []);
+  const [language, setLanguageState] = useState<Language>(() => {
+    if (typeof window === "undefined") return "th";
+    const saved = window.localStorage.getItem(STORAGE_KEY) ?? window.localStorage.getItem("delta-locale");
+    return saved === "en" || saved === "th" ? saved : "th";
+  });
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, language);

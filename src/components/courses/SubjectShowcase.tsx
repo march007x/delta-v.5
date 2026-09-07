@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { cx } from "@/lib/utils";
 import { Icon } from "@/components/layout/Icon";
+import { useLanguage } from "@/components/layout/LanguageContext";
 
 export interface MathMeta {
   lessons: number;
@@ -49,12 +50,14 @@ function offsetOf(index: number, active: number): number {
 export function SubjectShowcase({ mathMeta }: { mathMeta: MathMeta }) {
   const [active, setActive] = useState(0);
   const touchX = useRef<number | null>(null);
+  const { language } = useLanguage();
+  const en = language === "en";
 
   const go = (step: number) => setActive((i) => (i + step + N) % N);
 
   return (
     <section
-      aria-label="เลือกวิชา"
+      aria-label={en ? "Choose a subject" : "เลือกวิชา"}
       className="relative px-4 pb-10 sm:px-6 lg:px-10"
       onKeyDown={(e) => {
         if (e.key === "ArrowLeft") {
@@ -139,35 +142,39 @@ export function SubjectShowcase({ mathMeta }: { mathMeta: MathMeta }) {
                     s.ready ? "bg-lime" : "bg-white/40",
                   )}
                 />
-                {s.ready ? "เปิดเรียนแล้ว" : "เร็ว ๆ นี้"}
+                {s.ready ? (en ? "Now available" : "เปิดเรียนแล้ว") : (en ? "Coming soon" : "เร็ว ๆ นี้")}
               </p>
 
               <div className="absolute inset-x-0 bottom-0 p-4 sm:p-5">
-                <h3 className="m-0 font-display text-[21px] leading-tight font-semibold text-white sm:text-[25px]">
-                  {s.title}
-                </h3>
-                <p className="m-0 mt-1 text-[12.5px] leading-relaxed text-white/70 sm:text-[13.5px]">
-                  {s.tagline}
-                </p>
+                {s.ready ? (
+                  <>
+                    <h3 className="m-0 font-display text-[21px] leading-tight font-semibold text-white sm:text-[25px]">
+                      {en ? ({ math: "Mathematics", physics: "Physics", chemistry: "Chemistry", biology: "Biology", english: "English" } as Record<string, string>)[s.key] : s.title}
+                    </h3>
+                    <p className="m-0 mt-1 text-[12.5px] leading-relaxed text-white/70 sm:text-[13.5px]">
+                      {en ? ({ math: "Build your foundation. Think deeper.", physics: "Understand the universe, from the smallest particles to the largest galaxies.", chemistry: "Read the world through matter and its hidden reactions.", biology: "Uncover the mechanisms behind every living thing.", english: "Better language. Bigger opportunities." } as Record<string, string>)[s.key] : s.tagline}
+                    </p>
+                  </>
+                ) : null}
 
                 {center && s.ready ? (
                   <>
                     <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11px] text-white/65">
                       <span className="inline-flex items-center gap-1.5">
-                        <Icon name="book" size={13} /> {mathMeta.lessons} บทเรียน
+                        <Icon name="book" size={13} /> {mathMeta.lessons} {en ? "lessons" : "บทเรียน"}
                       </span>
                       <span className="inline-flex items-center gap-1.5">
                         <Icon name="chart" size={13} /> {mathMeta.levels}
                       </span>
                       <span className="inline-flex items-center gap-1.5">
-                        <Icon name="clock" size={13} /> ≈ {mathMeta.hours} ชม.
+                        <Icon name="clock" size={13} /> ≈ {mathMeta.hours} {en ? "hrs" : "ชม."}
                       </span>
                     </div>
                     <Link
                       href="#all-lessons"
                       className="mt-3.5 flex items-center justify-center gap-2 rounded-lg border border-white/25 bg-white/10 px-4 py-2.5 text-[13.5px] font-medium text-white no-underline backdrop-blur transition-colors hover:bg-white/20"
                     >
-                      ดูบทเรียนทั้งหมด
+                      {en ? "View all lessons" : "ดูบทเรียนทั้งหมด"}
                       <Icon name="arrow" size={15} />
                     </Link>
                   </>
@@ -175,7 +182,7 @@ export function SubjectShowcase({ mathMeta }: { mathMeta: MathMeta }) {
 
                 {center && !s.ready ? (
                   <p className="m-0 mt-3 flex items-center gap-1.5 font-mono text-[11px] text-white/55">
-                    <Icon name="clock" size={13} /> กำลังพัฒนา — ตอนนี้เปิดเฉพาะคณิตศาสตร์
+                    <Icon name="clock" size={13} /> {en ? "In development — Mathematics is currently available." : "กำลังพัฒนา — ตอนนี้เปิดเฉพาะคณิตศาสตร์"}
                   </p>
                 ) : null}
               </div>
@@ -185,7 +192,7 @@ export function SubjectShowcase({ mathMeta }: { mathMeta: MathMeta }) {
                 <button
                   type="button"
                   onClick={() => setActive(i)}
-                  aria-label={`ดูวิชา${s.title}`}
+                  aria-label={en ? `View ${s.key}` : `ดูวิชา${s.title}`}
                   className="absolute inset-0 h-full w-full cursor-pointer"
                 />
               ) : null}
@@ -199,7 +206,7 @@ export function SubjectShowcase({ mathMeta }: { mathMeta: MathMeta }) {
         <button
           type="button"
           onClick={() => go(-1)}
-          aria-label="วิชาก่อนหน้า"
+          aria-label={en ? "Previous subject" : "วิชาก่อนหน้า"}
           className="grid h-9 w-9 place-items-center rounded-full border border-hero-line text-hero-ink-2 transition-colors hover:border-hero-ink-3 hover:text-hero-ink"
         >
           <Icon name="chevron" size={15} className="rotate-180" />
@@ -211,7 +218,7 @@ export function SubjectShowcase({ mathMeta }: { mathMeta: MathMeta }) {
               key={s.key}
               type="button"
               onClick={() => setActive(i)}
-              aria-label={s.title}
+              aria-label={en ? ({ math: "Mathematics", physics: "Physics", chemistry: "Chemistry", biology: "Biology", english: "English" } as Record<string, string>)[s.key] : s.title}
               aria-current={i === active ? "true" : undefined}
               className={cx(
                 "h-1.5 rounded-full transition-all duration-300 motion-reduce:transition-none",
@@ -224,7 +231,7 @@ export function SubjectShowcase({ mathMeta }: { mathMeta: MathMeta }) {
         <button
           type="button"
           onClick={() => go(1)}
-          aria-label="วิชาถัดไป"
+          aria-label={en ? "Next subject" : "วิชาถัดไป"}
           className="grid h-9 w-9 place-items-center rounded-full border border-hero-line text-hero-ink-2 transition-colors hover:border-hero-ink-3 hover:text-hero-ink"
         >
           <Icon name="chevron" size={15} />

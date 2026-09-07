@@ -6,7 +6,40 @@ import { useLanguage } from "./LanguageContext";
 const CACHE_KEY = "delta-translations-th-en-v2";
 const SKIP_TEXT_TAGS = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "SVG", "PRE", "CODE"]);
 const SKIP_CLASSES = ["katex", "katex-display", "notranslate"];
-const BATCH_SIZE = 5;
+const BATCH_SIZE = 10;
+const RETRIES = 2;
+
+const STATIC_TRANSLATIONS: Record<string, string> = {
+  "คอร์สเรียน": "Courses",
+  "เลือกเส้นทางการเรียนรู้ที่ใช่สำหรับคุณ": "Choose the learning path that’s right for you.",
+  "บทเรียนทั้งหมดออกแบบตามหลักสูตรไทย เริ่มจากคำถามว่าทำไมต้องมีเรื่องนี้ แล้วค่อยพาไปเจอสูตร ปิดท้ายด้วยโจทย์ที่มีเฉลยบอกเหตุผล": "All lessons are designed according to the Thai curriculum. Let’s start with the question: Why does this matter? Then take you to find the formula. End with a question that has an answer giving reasons.",
+  "เรียน · เข้าใจ · ทำได้จริง": "LEARN · UNDERSTAND · ACHIEVE",
+  "ทั้งหมด": "All",
+  "บทเรียนทั้งหมด": "All lessons",
+  "บท": "lessons",
+  "กำลังเขียน": "In development",
+  "เรียนจบแล้ว": "Completed",
+  "กำลังเรียน": "In progress",
+  "ยังไม่เริ่ม": "Not started",
+  "สถิติการเรียน": "Learning stats",
+  "บทที่เรียนจบ": "lessons completed",
+  "ดูบทเรียนทั้งหมด": "View all lessons",
+  "เร็ว ๆ นี้": "Coming soon",
+  "เปิดเรียนแล้ว": "Now available",
+  "กำลังพัฒนา": "In development",
+  "คณิตศาสตร์": "Mathematics",
+  "ฟิสิกส์": "Physics",
+  "เคมี": "Chemistry",
+  "ชีววิทยา": "Biology",
+  "ภาษาอังกฤษ": "English",
+  "สูตร": "formulas",
+  "ค้นหาบทเรียน สูตร หรือหัวข้อ…": "Search lessons, formulas, or topics…",
+  "เปิดเมนู": "Open menu",
+  "ปิดเมนู": "Close menu",
+  "เมนูหลัก": "Main navigation",
+  "เมนูด่วน": "Quick navigation",
+  "เมนูทั้งหมด": "All navigation",
+};
 
 type TranslatableAttribute = "placeholder" | "title" | "aria-label";
 
@@ -45,30 +78,49 @@ function writeCache(cache: Record<string, string>) {
 }
 
 async function translateText(text: string) {
-  const params = new URLSearchParams({
-    client: "gtx",
-    sl: "th",
-    tl: "en",
-    dt: "t",
-    q: text,
-  });
+  const staticTranslation = STATIC_TRANSLATIONS[text];
+  if (staticTranslation) return staticTranslation;
 
-  const response = await fetch(
-    `https://translate.googleapis.com/translate_a/single?${params.toString()}`,
-    { cache: "force-cache" },
-  );
+  let lastError: unknown = null;
 
-  if (!response.ok) throw new Error("Translation failed");
+  for (let attempt = 0; attempt <= RETRIES; attempt += 1) {
+    try {
+      const params = new URLSearchParams({
+        client: "gtx",
+        sl: "th",
+        tl: "en",
+        dt: "t",
+        q: text,
+      });
 
-  const data: unknown = await response.json();
-  if (!Array.isArray(data) || !Array.isArray(data[0])) {
-    throw new Error("Invalid translation response");
+      const response = await fetch(
+        `https://translate.googleapis.com/translate_a/single?${params.toString()}`,
+        { cache: "force-cache" },
+      );
+
+      if (!response.ok) throw new Error("Translation failed");
+
+      const data: unknown = await response.json();
+      if (!Array.isArray(data) || !Array.isArray(data[0])) {
+        throw new Error("Invalid translation response");
+      }
+
+      const translated = data[0]
+        .filter((part): part is unknown[] => Array.isArray(part))
+        .map((part) => (typeof part[0] === "string" ? part[0] : ""))
+        .join("");
+
+      if (translated) return translated;
+      throw new Error("Empty translation");
+    } catch (error) {
+      lastError = error;
+      if (attempt < RETRIES) {
+        await new Promise((resolve) => window.setTimeout(resolve, 180 * (attempt + 1)));
+      }
+    }
   }
 
-  return data[0]
-    .filter((part): part is unknown[] => Array.isArray(part))
-    .map((part) => (typeof part[0] === "string" ? part[0] : ""))
-    .join("");
+  throw lastError instanceof Error ? lastError : new Error("Translation failed");
 }
 
 function shouldSkip(node: Text) {
@@ -162,7 +214,7 @@ async function translateRoot(root: HTMLElement) {
 
     await Promise.all(
       batch.map(async ([source, targets]) => {
-        let translated = cache[source];
+        let translated = cache[source] ?? STATIC_TRANSLATIONS[source];
 
         if (!translated) {
           try {

@@ -6,6 +6,7 @@ import { cx } from "@/lib/utils";
 import { Icon } from "@/components/layout/Icon";
 import { CourseArt } from "@/components/ui/CourseArt";
 import { useProgress } from "@/lib/progress/store";
+import { useLanguage } from "@/components/layout/LanguageContext";
 
 export interface CourseCard {
   slug: string;
@@ -36,6 +37,8 @@ export function CourseGrid({
 }) {
   const [filter, setFilter] = useState<string>("all");
   const { map, ready } = useProgress();
+  const { language } = useLanguage();
+  const en = language === "en";
 
   const shown = useMemo(
     () =>
@@ -68,9 +71,9 @@ export function CourseGrid({
           <div
             className="flex w-max gap-2"
             role="group"
-            aria-label="กรองตามระดับชั้น"
+            aria-label={en ? "Filter by grade level" : "กรองตามระดับชั้น"}
           >
-            {[{ id: "all", label: "ทั้งหมด" }, ...levels].map((l) => (
+            {[{ id: "all", label: en ? "All" : "ทั้งหมด" }, ...levels.map((level) => ({ ...level, label: en ? level.label.replace("ม.", "Grade ") : level.label }))].map((l) => (
               <button
                 key={l.id}
                 type="button"
@@ -92,11 +95,11 @@ export function CourseGrid({
         <div className="mb-4 flex items-baseline justify-between gap-4">
           <h2 className="m-0 font-display text-[19px] font-semibold text-ink">
             {filter === "all"
-              ? "บทเรียนทั้งหมด"
+              ? en ? "All lessons" : "บทเรียนทั้งหมด"
               : levels.find((l) => l.id === filter)?.label}
           </h2>
           <p className="m-0 font-mono text-[12.5px] text-ink-3">
-            {shown.length} บท
+            {shown.length} {en ? "lessons" : "บท"}
           </p>
         </div>
 
@@ -119,7 +122,7 @@ export function CourseGrid({
                   </span>
                   {!c.ready ? (
                     <span className="absolute top-2.5 left-2.5 rounded-md bg-black/55 px-2 py-1 font-mono text-[10.5px] text-white backdrop-blur">
-                      กำลังเขียน
+                      en ? "In development" : "กำลังเขียน"
                     </span>
                   ) : null}
                 </span>
@@ -136,7 +139,7 @@ export function CourseGrid({
                     {c.ready ? (
                       <span className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11.5px] text-ink-3">
                         <span className="inline-flex items-center gap-1.5">
-                          <Icon name="book" size={13} /> 14 ขั้นตอน
+                          <Icon name="book" size={13} /> 14 {en ? "steps" : "ขั้นตอน"}
                         </span>
                         {c.questionCount > 0 ? (
                           <span className="inline-flex items-center gap-1.5">
@@ -186,24 +189,24 @@ export function CourseGrid({
       <aside className="w-full shrink-0 xl:w-72">
         <div className="rounded-xl border border-line bg-surface p-5">
           <p className="m-0 mb-4 font-display text-[15px] font-semibold text-ink">
-            เรียนจบแล้ว
+            en ? "Completed" : "เรียนจบแล้ว"
           </p>
           <div className="flex items-center gap-4">
             <Ring pct={stats.pct} />
             <p className="m-0 text-[13.5px] leading-relaxed text-ink-3">
               {stats.done}/{cards.length}
               <br />
-              บทที่เรียนจบ
+              en ? "lessons completed" : "บทที่เรียนจบ"
             </p>
           </div>
 
           <p className="m-0 mt-5 mb-2.5 font-display text-[15px] font-semibold text-ink">
-            สถิติการเรียน
+            en ? "Learning stats" : "สถิติการเรียน"
           </p>
           <ul className="m-0 flex list-none flex-col gap-2 p-0">
             {[
               { icon: "clock", label: "กำลังเรียน", n: stats.doing },
-              { icon: "check", label: "เรียนจบแล้ว", n: stats.done },
+              { icon: "check", label: en ? "Completed" : "เรียนจบแล้ว", n: stats.done },
               { icon: "book", label: "ยังไม่เริ่ม", n: stats.none },
             ].map((row) => (
               <li
@@ -219,7 +222,7 @@ export function CourseGrid({
         </div>
 
         <p className="m-0 mt-4 rounded-xl border border-line bg-surface p-5 text-[14.5px] leading-relaxed text-ink-2">
-          “ก้าวเล็ก ๆ ในวันนี้ คือความเก่งในวันหน้า”
+          en ? "Small steps today become greater skills tomorrow." : "“ก้าวเล็ก ๆ ในวันนี้ คือความเก่งในวันหน้า”"
           <span className="mt-2 block font-mono text-[11px] tracking-wide text-ink-3">
             — DELTA
           </span>
