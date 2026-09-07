@@ -1,0 +1,235 @@
+"use client";
+
+import { useRef, useState } from "react";
+import Link from "next/link";
+import { cx } from "@/lib/utils";
+import { Icon } from "@/components/layout/Icon";
+
+export interface MathMeta {
+  lessons: number;
+  hours: number;
+  levels: string;
+}
+
+interface Subject {
+  key: string;
+  title: string;
+  tagline: string;
+  ready: boolean;
+}
+
+/**
+ * ชั้นวางการ์ดวิชาแบบ 3 มิติ — การ์ดกลางหันตรง การ์ดข้างเอียงหนีเข้าไปในจอ
+ *
+ * ทำด้วย transform ล้วน (translateX + rotateY + scale) บนพื้นที่ที่ตั้ง perspective ไว้
+ * ไม่ใช้ไลบรารี carousel เพราะทั้งหมดที่ต้องการคือย้ายค่า active ตัวเดียว
+ * การ์ดวนรอบได้ (offset คำนวณแบบวงกลม) เลื่อนต่อจากใบสุดท้ายแล้วกลับมาใบแรกเอง
+ *
+ * ตัวเลขบนการ์ดคณิตศาสตร์เป็นค่าจริงที่นับจากไฟล์เนื้อหาตอน build (ส่งมาทาง props)
+ * วิชาที่ยังไม่มีเนื้อหาจะไม่มีตัวเลขใด ๆ ทั้งสิ้น — ไม่ใส่จำนวนบทหลอกไว้ให้ดูเต็ม
+ */
+const SUBJECTS: Subject[] = [
+  { key: "math", title: "คณิตศาสตร์", tagline: "วางพื้นฐานให้แน่น แล้วคิดให้ลึกกว่าเดิม", ready: true },
+  { key: "physics", title: "ฟิสิกส์", tagline: "เข้าใจจักรวาล ตั้งแต่อนุภาคเล็กที่สุดถึงกาแล็กซี", ready: false },
+  { key: "chemistry", title: "เคมี", tagline: "อ่านโลกจากสิ่งที่เล็กเกินกว่าตาจะมองเห็น", ready: false },
+  { key: "biology", title: "ชีววิทยา", tagline: "ถอดกลไกเบื้องหลังสิ่งมีชีวิตทั้งหมด", ready: false },
+  { key: "english", title: "ภาษาอังกฤษ", tagline: "ภาษาที่ดีขึ้น เปิดโอกาสที่กว้างขึ้น", ready: false },
+];
+
+const N = SUBJECTS.length;
+
+/** ระยะจากใบที่เลือกอยู่ แบบวงกลม: -2 -1 0 1 2 */
+function offsetOf(index: number, active: number): number {
+  let d = index - active;
+  if (d > N / 2) d -= N;
+  if (d < -N / 2) d += N;
+  return d;
+}
+
+export function SubjectShowcase({ mathMeta }: { mathMeta: MathMeta }) {
+  const [active, setActive] = useState(0);
+  const touchX = useRef<number | null>(null);
+
+  const go = (step: number) => setActive((i) => (i + step + N) % N);
+
+  return (
+    <section
+      aria-label="เลือกวิชา"
+      className="relative px-4 pb-10 sm:px-6 lg:px-10"
+      onKeyDown={(e) => {
+        if (e.key === "ArrowLeft") {
+          e.preventDefault();
+          go(-1);
+        } else if (e.key === "ArrowRight") {
+          e.preventDefault();
+          go(1);
+        }
+      }}
+    >
+      <div
+        className="relative mx-auto flex h-[398px] w-full max-w-5xl items-center justify-center sm:h-[500px]"
+        style={{ perspective: "1500px" }}
+        onTouchStart={(e) => {
+          touchX.current = e.touches[0]?.clientX ?? null;
+        }}
+        onTouchEnd={(e) => {
+          const start = touchX.current;
+          const end = e.changedTouches[0]?.clientX;
+          touchX.current = null;
+          if (start === null || end === undefined) return;
+          const dx = end - start;
+          if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1);
+        }}
+      >
+        {SUBJECTS.map((s, i) => {
+          const d = offsetOf(i, active);
+          const far = Math.abs(d);
+          const center = far === 0;
+
+          return (
+            <article
+              key={s.key}
+              aria-hidden={far > 1 ? true : undefined}
+              className={cx(
+                "absolute w-[min(70vw,272px)] overflow-hidden rounded-2xl border transition-all duration-500 ease-out select-none sm:w-[348px]",
+                "motion-reduce:transition-none",
+                center ? "border-transparent" : "border-hero-line",
+              )}
+              style={{
+                aspectRatio: "3 / 4",
+                transform: `translateX(${d === 0 ? 0 : far === 1 ? d * 58 : d * 96}%) rotateY(${-d * 30}deg) scale(${
+                  center ? 1 : far === 1 ? 0.84 : 0.66
+                })`,
+                opacity: center ? 1 : far === 1 ? 0.82 : 0.3,
+                filter: center ? undefined : `blur(${far === 1 ? 0.8 : 2.4}px)`,
+                zIndex: 30 - far * 10,
+                /* ขอบเรืองแสงสีน้ำเงินสงวนไว้ให้วิชาที่เรียนได้จริงเท่านั้น
+                   ใบที่ยังไม่เปิดถึงจะอยู่กลางจอก็ได้แค่ขอบขาวจาง ๆ ไม่ใช่สัญญาณว่าพร้อมใช้ */
+                boxShadow: !center
+                  ? "0 14px 40px rgba(4,7,14,0.45)"
+                  : s.ready
+                    ? "0 0 0 1.5px var(--brand-blue), 0 0 34px rgba(43,127,255,0.34), 0 26px 70px rgba(4,7,14,0.55)"
+                    : "0 0 0 1px rgba(255,255,255,0.20), 0 26px 70px rgba(4,7,14,0.55)",
+                pointerEvents: far > 2 ? "none" : undefined,
+              }}
+            >
+              <img
+                src={`/subjects/${s.key}-480.webp`}
+                srcSet={`/subjects/${s.key}-360.webp 360w, /subjects/${s.key}-480.webp 480w, /subjects/${s.key}-720.webp 720w`}
+                sizes="(min-width: 640px) 348px, 70vw"
+                alt=""
+                aria-hidden
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+              <span
+                aria-hidden
+                className="absolute inset-0"
+                style={{
+                  background:
+                    "linear-gradient(180deg, rgba(4,7,14,0.55) 0%, rgba(4,7,14,0) 34%, rgba(4,7,14,0.62) 66%, rgba(4,7,14,0.94) 100%)",
+                }}
+              />
+
+              {/* ป้ายสถานะมุมบน — บอกตั้งแต่แวบแรกว่าใบไหนเรียนได้จริง */}
+              <p className="absolute top-3.5 left-4 m-0 flex items-center gap-1.5 font-mono text-[10px] tracking-[0.16em] text-white/70 uppercase">
+                <span
+                  aria-hidden
+                  className={cx(
+                    "inline-block h-1.5 w-1.5 rounded-full",
+                    s.ready ? "bg-lime" : "bg-white/40",
+                  )}
+                />
+                {s.ready ? "เปิดเรียนแล้ว" : "เร็ว ๆ นี้"}
+              </p>
+
+              <div className="absolute inset-x-0 bottom-0 p-4 sm:p-5">
+                <h3 className="m-0 font-display text-[21px] leading-tight font-semibold text-white sm:text-[25px]">
+                  {s.title}
+                </h3>
+                <p className="m-0 mt-1 text-[12.5px] leading-relaxed text-white/70 sm:text-[13.5px]">
+                  {s.tagline}
+                </p>
+
+                {center && s.ready ? (
+                  <>
+                    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11px] text-white/65">
+                      <span className="inline-flex items-center gap-1.5">
+                        <Icon name="book" size={13} /> {mathMeta.lessons} บทเรียน
+                      </span>
+                      <span className="inline-flex items-center gap-1.5">
+                        <Icon name="chart" size={13} /> {mathMeta.levels}
+                      </span>
+                      <span className="inline-flex items-center gap-1.5">
+                        <Icon name="clock" size={13} /> ≈ {mathMeta.hours} ชม.
+                      </span>
+                    </div>
+                    <Link
+                      href="#all-lessons"
+                      className="mt-3.5 flex items-center justify-center gap-2 rounded-lg border border-white/25 bg-white/10 px-4 py-2.5 text-[13.5px] font-medium text-white no-underline backdrop-blur transition-colors hover:bg-white/20"
+                    >
+                      ดูบทเรียนทั้งหมด
+                      <Icon name="arrow" size={15} />
+                    </Link>
+                  </>
+                ) : null}
+
+                {center && !s.ready ? (
+                  <p className="m-0 mt-3 flex items-center gap-1.5 font-mono text-[11px] text-white/55">
+                    <Icon name="clock" size={13} /> กำลังพัฒนา — ตอนนี้เปิดเฉพาะคณิตศาสตร์
+                  </p>
+                ) : null}
+              </div>
+
+              {/* ใบข้าง: ทั้งใบเป็นปุ่มพาตัวเองมาอยู่ตรงกลาง — ใบกลางไม่มีปุ่มนี้ทับ ปุ่มข้างในจึงกดได้ */}
+              {!center && far <= 2 ? (
+                <button
+                  type="button"
+                  onClick={() => setActive(i)}
+                  aria-label={`ดูวิชา${s.title}`}
+                  className="absolute inset-0 h-full w-full cursor-pointer"
+                />
+              ) : null}
+            </article>
+          );
+        })}
+      </div>
+
+      {/* แถบควบคุม — ปุ่มลูกศรมีไว้ให้คนใช้คีย์บอร์ดและคนที่ไม่รู้ว่าการ์ดข้างกดได้ */}
+      <div className="mt-5 flex items-center justify-center gap-4">
+        <button
+          type="button"
+          onClick={() => go(-1)}
+          aria-label="วิชาก่อนหน้า"
+          className="grid h-9 w-9 place-items-center rounded-full border border-hero-line text-hero-ink-2 transition-colors hover:border-hero-ink-3 hover:text-hero-ink"
+        >
+          <Icon name="chevron" size={15} className="rotate-180" />
+        </button>
+
+        <div className="flex items-center gap-2">
+          {SUBJECTS.map((s, i) => (
+            <button
+              key={s.key}
+              type="button"
+              onClick={() => setActive(i)}
+              aria-label={s.title}
+              aria-current={i === active ? "true" : undefined}
+              className={cx(
+                "h-1.5 rounded-full transition-all duration-300 motion-reduce:transition-none",
+                i === active ? "w-6 bg-hero-ink" : "w-1.5 bg-hero-ink-3 hover:bg-hero-ink-2",
+              )}
+            />
+          ))}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => go(1)}
+          aria-label="วิชาถัดไป"
+          className="grid h-9 w-9 place-items-center rounded-full border border-hero-line text-hero-ink-2 transition-colors hover:border-hero-ink-3 hover:text-hero-ink"
+        >
+          <Icon name="chevron" size={15} />
+        </button>
+      </div>
+    </section>
+  );
+}

@@ -93,6 +93,24 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
     );
   }
 
+  {
+    /* หน้า /login เป็นทางเข้าก่อนมีบัญชี — ไม่ควรมีแถบเมนูของแอปที่ต้องล็อกอินก่อนถึงจะมีความหมาย
+       (ภาพรวม/คอร์ส/ฝึก ฯลฯ) ล้อมรอบอยู่ จึงใช้หัวจอเรียบแบบเดียวกับหน้าแรก ไม่มี sidebar/แถบล่าง/footer */
+  }
+  if (pathname === "/login") {
+    return (
+      <>
+        <header className="on-hero absolute top-0 right-0 left-0 z-40">
+          <div className="mx-auto flex h-18 max-w-6xl items-center justify-between gap-3 px-6 py-4 sm:px-8">
+            <Brand tone="hero" />
+            <LanguageToggle />
+          </div>
+        </header>
+        <main id="main">{children}</main>
+      </>
+    );
+  }
+
   return (
     <div className="flex min-h-screen">
       <aside
